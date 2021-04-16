@@ -1,0 +1,4 @@
+include ':scanlibrary'
+include ':openCVLibrary'
+include ':app'
+rootProject.name = "PDFScanner"
