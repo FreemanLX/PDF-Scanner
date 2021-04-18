@@ -16,7 +16,7 @@
         android:id="@+id/imageView"
         android:layout_width="77dp"
         android:layout_height="64dp"
-        android:scaleType="centerInside"
+        android:scaleType="fitXY"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.002"
@@ -30,6 +30,7 @@
         android:layout_width="190dp"
         android:layout_height="24dp"
         android:text="@string/nav_header_title"
+        android:textColor="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.529"
@@ -47,7 +48,9 @@
         app:layout_constraintHorizontal_bias="0.563"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0" />
+        app:layout_constraintVertical_bias="0.0"
+        android:textColor="@color/white"
+        />
 
     <FrameLayout
         android:layout_width="394dp"
@@ -55,15 +58,23 @@
         android:background="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintHorizontal_bias="0.47"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.763">
+        app:layout_constraintVertical_bias="0.802">
+
+        <TextView
+            style="@style/TextAppearance.AppCompat.SearchResult.Subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal|center"
+            android:text="You don't have PDFs scanned until now"
+            android:id = "@+id/empty_mes"/>
 
         <ListView
             android:id="@+id/listview"
-            android:layout_width="433dp"
-            android:layout_height="410dp"
+            android:layout_width="381dp"
+            android:layout_height="414dp"
             android:divider="#FFCC00"
             android:dividerHeight="2dp"
             android:focusable="false"

@@ -72,8 +72,10 @@ public class multiple_document_scanned_mode extends AppCompatActivity {
         setContentView(R.layout.activity_multiple_document_scanned_mode);
         init();
         gridView.setOnItemClickListener((parent, view, position, id) -> {
-            MyDialogFragment dialogFragment = new MyDialogFragment();
-             dialogFragment.show(getSupportFragmentManager(), null);
+             arr_bitmap.remove(position);
+             arrayList.remove(position);
+             adapter = new image_adapter(this, R.layout.grid_view_element, arrayList);
+             gridView.setAdapter(adapter);
         }
         );
     }
@@ -114,23 +116,6 @@ public class multiple_document_scanned_mode extends AppCompatActivity {
               setResult(RESULT_CANCELED);
           finish();
     }
-
-    private void delete_document(int index){
-
-    }
-
-    public class MyDialogFragment extends DialogFragment {
-        @NotNull
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle(R.string.options)
-                    .setItems(R.array.options_array, (dialog, which) -> {
-                            delete_document(which);
-                    });
-            return builder.create();
-        }
-    }
-
     ArrayList<Bitmap> arr_bitmap = new ArrayList<>();
 
     @Override

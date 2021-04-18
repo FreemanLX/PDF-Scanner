@@ -19,9 +19,7 @@ public class Settings_PDF_Scanner extends AppCompatActivity {
                     .commit();
         }
         ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setDisplayHomeAsUpEnabled(true);
-        }
+        if (actionBar != null) actionBar.setDisplayHomeAsUpEnabled(true);
     }
 
     public static class SettingsFragment extends PreferenceFragmentCompat {

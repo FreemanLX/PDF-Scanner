@@ -65,7 +65,6 @@ public class ScanActivity extends Activity implements IScanner, ComponentCallbac
     public void onTrimMemory(int level) {
         switch (level) {
             case ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN:
-                break;
             case ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE:
             case ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW:
             case ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL:
@@ -80,12 +79,6 @@ public class ScanActivity extends Activity implements IScanner, ComponentCallbac
                         .show();
                 break;
             default:
-                /*
-                  Release any non-critical data structures.
-
-                  The app received an unrecognized memory level value
-                  from the system. Treat this as a generic low-memory message.
-                */
                 break;
         }
     }

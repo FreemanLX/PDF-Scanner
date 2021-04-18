@@ -48,4 +48,5 @@
     <string name="menu_gallery">Gallery</string>
     <string name="menu_slideshow">Slideshow</string>
     <string name="scan_a_document">Scan a document</string>
+    <string name="title_activity_pdf_view_act">pdf_view_act</string>
 </resources>
