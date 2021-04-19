@@ -1,11 +1,9 @@
 package com.example.pdfscanner;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.NotificationChannel;
@@ -17,6 +15,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcel;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
@@ -32,7 +31,6 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.ListResult;
 import com.google.firebase.storage.StorageReference;
@@ -40,8 +38,6 @@ import com.google.firebase.storage.UploadTask;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Image;
 import com.itextpdf.text.pdf.PdfWriter;
-import com.jakewharton.processphoenix.ProcessPhoenix;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -49,15 +45,10 @@ import java.io.IOException;;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import static android.content.pm.PackageManager.*;
 import static android.os.Environment.getExternalStorageDirectory;
 
 
@@ -87,7 +78,6 @@ public class Scanner extends AppCompatActivity {
         public String getSize() {
             return "File size: " + size;
         }
-
     }
 
     ArrayList<PDF_Scanned> arrayList = new ArrayList<>();
@@ -284,7 +274,7 @@ public class Scanner extends AppCompatActivity {
         });
         UUID = getIntent().getStringExtra("UUID");
         sync_files_from_database();
-        storage_perm = getIntent().getBooleanExtra("permission", false);
+        storage_perm = getIntent().getBooleanExtra("permission", true);
     }
 
     @Override
@@ -447,6 +437,7 @@ public class Scanner extends AppCompatActivity {
                     Image img = Image.getInstance(bytes.toByteArray());
                     img.setAlignment(Image.BOX);
                     standard.add(img);
+                    standard.newPage();
                 }
                 standard.close();
                 File t = new File(savedocument);
@@ -477,17 +468,15 @@ public class Scanner extends AppCompatActivity {
         SimpleDateFormat datenameFormat = new SimpleDateFormat("MM_dd_yyyy_HH_mm_ss");
         if (requestCode == 1) {
             if (resultCode == RESULT_OK) {
-                data_photo = data.getParcelableArrayListExtra("output");
+                storage_perm = true;
+                Thread get_array_parceable = new Thread( () -> {
+                    data_photo = multiple_document_scanned_mode.getter();
+                });
+                get_array_parceable.start();
+                while(get_array_parceable.isAlive()) { }
                 Document document = new Document();
                 String loc = null;
-                ExecutorService threadpool = Executors.newCachedThreadPool();
-                Future<String> futureTask = threadpool.submit(() -> CreatePDFandSave("PDF_" + datenameFormat.format(calendar.getTime()), document));
-                try {
-                    loc = futureTask.get();
-                }
-                catch (InterruptedException | ExecutionException e){
-                    e.printStackTrace();
-                }
+                loc = CreatePDFandSave("PDF_" + datenameFormat.format(calendar.getTime()), document);
                 if(storage_perm) {
                     upload_pdf(loc);
                     pdf_locations.add(loc);

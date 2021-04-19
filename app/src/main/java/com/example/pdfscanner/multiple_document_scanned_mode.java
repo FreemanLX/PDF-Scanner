@@ -26,8 +26,12 @@ import com.scanlibrary.ScanConstants;
 import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class multiple_document_scanned_mode extends AppCompatActivity {
+
+    private static ArrayList<Bitmap> arr_bitmap;
 
     public class image_document_scanned {
         Bitmap bitmap;
@@ -105,18 +109,20 @@ public class multiple_document_scanned_mode extends AppCompatActivity {
         savedButton = (Button) findViewById(R.id.button3);
         savedButton.setOnClickListener(v -> save_document());
         gridView = (GridView) findViewById(R.id.gridview);
+        arr_bitmap = new ArrayList<>();
     }
 
     private void save_document(){
-          Intent result_intent = new Intent();
-          result_intent.putParcelableArrayListExtra("output", arr_bitmap);
-          if(arrayList.size() > 0)
-              setResult(RESULT_OK, result_intent);
+        for(image_document_scanned img : arrayList){
+              arr_bitmap.add(img.getBitmap());
+        }
+
+        if(arr_bitmap.size() > 0)
+              setResult(RESULT_OK);
           else
               setResult(RESULT_CANCELED);
           finish();
     }
-    ArrayList<Bitmap> arr_bitmap = new ArrayList<>();
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -127,7 +133,6 @@ public class multiple_document_scanned_mode extends AppCompatActivity {
                 try {
                     Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
                     arrayList.add(new image_document_scanned(bitmap));
-                    arr_bitmap.add(bitmap);
                     adapter = new image_adapter(this, R.layout.grid_view_element, arrayList);
                     gridView.setAdapter(adapter);
                     getContentResolver().delete(uri, null, null);
@@ -137,6 +142,10 @@ public class multiple_document_scanned_mode extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    public static ArrayList<Bitmap> getter(){
+           return arr_bitmap;
     }
 
 }

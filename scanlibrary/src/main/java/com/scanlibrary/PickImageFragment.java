@@ -46,8 +46,15 @@ public class PickImageFragment extends Fragment {
         }
     }
 
+
+
     private void handleIntentPreference() {
-        openCamera();
+        int preference = getArguments().getInt(ScanConstants.OPEN_INTENT_PREFERENCE, 0);
+        if (preference == ScanConstants.OPEN_CAMERA) {
+            openCamera();
+        } else if (preference == ScanConstants.OPEN_MEDIA) {
+            openMediaContent();
+        }
     }
 
     private boolean isIntentPreferenceSet() {
@@ -61,8 +68,16 @@ public class PickImageFragment extends Fragment {
         }
     }
 
+
     public void openCamera() {
          startActivityForResult( new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE), ScanConstants.OPEN_CAMERA);
+    }
+
+    public void openMediaContent(){
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(intent, ScanConstants.PICKFILE_REQUEST_CODE);
     }
 
     @Override
