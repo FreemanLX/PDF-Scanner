@@ -6,6 +6,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
@@ -13,9 +14,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Parcel;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
@@ -29,10 +30,8 @@ import android.view.WindowManager;
 import android.widget.AdapterView.AdapterContextMenuInfo;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.ListResult;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 import com.itextpdf.text.Document;
@@ -41,10 +40,14 @@ import com.itextpdf.text.pdf.PdfWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;;
+import java.util.Calendar;
+import java.util.Comparator;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -53,10 +56,8 @@ import static android.os.Environment.getExternalStorageDirectory;
 
 
 public class Scanner extends AppCompatActivity {
-    private Button scanButton;
     private ListView scannedImageView;
     PDF_Adapter adapter;
-    private Calendar calendar;
     ArrayList<Bitmap> data_photo;
     ArrayList<String> pdf_locations;
     TextView empty_message;
@@ -65,9 +66,15 @@ public class Scanner extends AppCompatActivity {
 
     public static class PDF_Scanned {
         String name, size;
+        long size_int;
         PDF_Scanned(String name, String size) {
             this.name = name;
             this.size = size;
+        }
+        PDF_Scanned(String name, String size, long size_int){
+            this.name = name;
+            this.size = size;
+            this.size_int = size_int;
         }
         public String getName() {
             return "File name: " + name;
@@ -78,6 +85,10 @@ public class Scanner extends AppCompatActivity {
         public String getSize() {
             return "File size: " + size;
         }
+        public long getSizeInt(){
+            return size_int;
+        }
+
     }
 
     ArrayList<PDF_Scanned> arrayList = new ArrayList<>();
@@ -105,23 +116,17 @@ public class Scanner extends AppCompatActivity {
         }
     }
 
-    private void clearAppData() {
-        try {
-            if (Build.VERSION_CODES.KITKAT <= Build.VERSION.SDK_INT) {
-                ((ActivityManager)getSystemService(ACTIVITY_SERVICE)).clearApplicationUserData(); // note: it has a return value!
-            } else {
-                String packageName = getApplicationContext().getPackageName();
-                Runtime runtime = Runtime.getRuntime();
-                runtime.exec("pm clear "+packageName);
-            }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+    class PDF_Scanned_operator implements Comparator<PDF_Scanned> {
+        public int compare(Scanner.PDF_Scanned obj, Scanner.PDF_Scanned obj1) {
+            long obj_size = obj.getSizeInt();
+            long obj1_size = obj1.getSizeInt();
+            return Long.compare(obj_size, obj1_size);
         }
     }
 
-
-    protected void sync_files_from_database(){
+    protected void sync_files_from_database() {
+        Thread thread = new Thread( () -> {
         try {
             File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data", "/PDFScanner");
             if (!dir.exists() && !dir.mkdirs()) throw new Exception();
@@ -131,56 +136,82 @@ public class Scanner extends AppCompatActivity {
             return;
         }
         StorageReference listRef = storage.getReference();
-        Task<ListResult> sfr = listRef.child("data/" + UUID ).listAll().addOnSuccessListener(listResult -> {
+        listRef.child("data/" + UUID ).listAll().addOnSuccessListener(listResult -> {
             for (StorageReference prefix : listResult.getItems()) {
                     String filename = prefix.getName();
                     File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner/" + filename);
                     if(!dir.exists()) {
                         try {
-                            dir.createNewFile();
-                        } catch (IOException e) {
+                            if(!dir.createNewFile()) throw new Exception();
+                        } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
-                prefix.getFile(dir).addOnSuccessListener(taskSnapshot -> {
-                    }).addOnFailureListener(exception -> {
-                        // Handle any errors
-                    });
-
-            }})
-                .addOnFailureListener(e -> {
-                    // Uh-oh, an error occurred!
-                });
-
-        readfiles(false);
+                    prefix.getFile(dir).addOnSuccessListener(taskSnapshot -> { });
+            }});});
+        thread.start();
+        while(thread.isAlive()){
+            try {
+                Thread.sleep(2000);
+            }
+            catch (InterruptedException e){
+                 e.printStackTrace();
+            }
+        }
     }
 
-    protected void readfiles(boolean upload_to_database){
-        String savefile = getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner";
-        File dir = new File(savefile);
-        File[] listFile = dir.listFiles();
+    protected void Read_files(){
+        Thread thread_for_read = new Thread ( ()-> {
+            File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner");
+            File[] listFile = dir.listFiles();
             if (listFile != null) {
                 for (File file : listFile) {
                     pdf_locations.add(file.getAbsolutePath());
-                    String path = file.getAbsolutePath();
-                    Log.d("", path);
-                    if(upload_to_database) {
-                        Thread x = new Thread(() -> {
-                            upload_pdf(path);
-                        });
-                        x.start();
-                        while (x.isAlive()) {
-
-                        }
-                    }
-                    String filename = path.substring(path.lastIndexOf("/")+1);
-                    arrayList.add(new PDF_Scanned(filename, size_conversion((int) file.length())));
-                    if (arrayList.size() != 0) empty_message.setVisibility(View.GONE);
-                    adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
-                    scannedImageView.setAdapter(adapter);
+                    long len = file.length();
+                    arrayList.add(new PDF_Scanned(file.getName(), size_conversion((int) len), len));
                 }
             }
+        });
+        thread_for_read.start();
+        while(thread_for_read.isAlive()){
+             try{
+                 Thread.sleep(1000);
+             }
+             catch (Exception e){
+                 e.printStackTrace();
+             }
 
+        }
+    }
+
+    protected void after_sort(){
+        Thread preparing_for_sort = new Thread( ()->{
+        if(arrayList.size() > 0) {
+            try {
+                qsort(arrayList, new PDF_Scanned_operator());
+            }
+            catch (Exception e){
+                e.printStackTrace();
+            }
+        } });
+        preparing_for_sort.start();
+        while (preparing_for_sort.isAlive()){
+            try {
+                Thread.sleep(1000);
+            }
+            catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    protected void set_lists(){
+        if(arrayList.size() > 0) {
+            adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
+            scannedImageView.setAdapter(adapter);
+            empty_message.setVisibility(View.GONE);
+        }
     }
 
 
@@ -189,44 +220,33 @@ public class Scanner extends AppCompatActivity {
         update.setText(s);
     }
 
-    public void includesForDeleteFiles(String loc) {
-            StorageReference storageRef = storage.getReference();
-            Uri file = Uri.fromFile(new File(loc));
-            StorageReference verify = storage.getReference().child("data/" + UUID + "/" + file.getLastPathSegment());
-            verify.delete().addOnSuccessListener(aVoid -> {
-            }).addOnFailureListener(Throwable::printStackTrace);
+    protected void hide_text(int id){
+        TextView tw = (TextView) findViewById(id);
+        tw.setVisibility(View.GONE);
     }
 
-
-    private boolean Exists_File(String loc){
-        storage = FirebaseStorage.getInstance();
-        Uri file = Uri.fromFile(new File(loc));
-        StorageReference verify = storage.getReference().child("data/" + UUID + "/" + file.getLastPathSegment());
-        try {
-            verify.getDownloadUrl();
-        } catch(Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-        return true;
-    }
-
-
-
-    private void upload_pdf(String location){
-               Uri file = Uri.fromFile(new File(location));
-               StorageReference storageRef = storage.getReference();
-                UploadTask uploadTask = storageRef.child("data/" + UUID + "/" + file.getLastPathSegment()).putFile(file);
-                uploadTask.addOnProgressListener(taskSnapshot -> {
-                    double progress = (100.0 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
-                }).addOnPausedListener(taskSnapshot -> Log.d("", "Upload is paused")).addOnFailureListener(exception -> { }).addOnSuccessListener(taskSnapshot -> { });
-
+    protected boolean verify_text(String text){
+          return text.length() > 0 && text.length() < 20;
     }
 
     private void init() {
+        String welcome_text = getIntent().getStringExtra("Welcome");
+        String email = getIntent().getStringExtra("Email");
+        Bitmap btm = getIntent().getParcelableExtra("profile_photo");
+        ImageView img = this.findViewById(R.id.imageView);
+        img.setImageBitmap(btm);
+        if(verify_text(welcome_text) && verify_text(email)){
+            set_text("Welcome, " + welcome_text, R.id.textView2);
+            set_text(email, R.id.textView4);
+        }
+        if(verify_text(welcome_text) && !verify_text(email)){
+              set_text("Welcome, " + welcome_text, R.id.textView4);
+              hide_text(R.id.textView2);
+        }
+
         scannedImageView = (ListView) findViewById(R.id.listview);
-        scanButton = (Button) findViewById(R.id.mediaButton);
-        scanButton.setOnClickListener(v -> startActivityForResult(new Intent(Scanner.this, multiple_document_scanned_mode.class), 1));
+        Button scanButton = (Button) findViewById(R.id.mediaButton);
+        scanButton.setOnClickListener(v -> startActivityForResult(new Intent(Scanner.this, Multiple_scan.class), 1));
         data_photo = new ArrayList<>();
         pdf_locations = new ArrayList<>();
         empty_message = (TextView) findViewById(R.id.empty_mes);
@@ -238,7 +258,67 @@ public class Scanner extends AppCompatActivity {
         }
         storage = FirebaseStorage.getInstance();
     }
-   String author_name;
+
+    @SuppressLint("StaticFieldLeak")
+    private class Sync_File extends AsyncTask<String, Integer, Boolean> {
+        Custom_loading_dialog general;
+        Sync_File(Custom_loading_dialog obj){
+                 general = obj;
+                 general.LoadingDialog();
+        }
+        protected Boolean doInBackground(String... strings) { sync_files_from_database(); Read_files(); after_sort(); return true; }
+        protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
+        protected void onPostExecute(Boolean result) { this.general.stop(); set_lists(); }
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    private class Delete extends AsyncTask<String, Integer, Boolean> {
+        Custom_loading_dialog general;
+        int position;
+        Delete(Custom_loading_dialog obj, int position){
+            general = obj;
+            this.position = position;
+            general.LoadingDialog();
+        }
+        protected Boolean doInBackground(String... strings) { delete(position, true, true); return true; }
+        protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
+        protected void onPostExecute(Boolean result) { this.general.stop(); refresh();}
+    }
+
+
+    @SuppressLint("StaticFieldLeak")
+    private class Reset_all extends AsyncTask<String, Integer, Boolean> {
+        Custom_loading_dialog general;
+        Reset_all(Custom_loading_dialog obj){ general = obj; general.LoadingDialog(); }
+        protected Boolean doInBackground(String... strings) {
+            int i = 0;
+            while(i < pdf_locations.size()){ delete(i, true, false); }
+            clearAppData();
+            return true;
+        }
+        protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
+        protected void onPostExecute(Boolean result) { }
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    private class Sign_Out extends AsyncTask<String, Integer, Boolean> {
+        Custom_loading_dialog general;
+        Sign_Out(Custom_loading_dialog obj){
+            general = obj;
+            general.LoadingDialog();
+        }
+        protected Boolean doInBackground(String... strings) {
+            int i = 0;
+            try { Thread.sleep(2000); } catch (InterruptedException e) { e.printStackTrace(); }
+            while(i < pdf_locations.size()){ delete(i, false, false); }
+            clearAppData();
+            return true;
+        }
+        protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
+        protected void onPostExecute(Boolean result) { }
+    }
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -246,35 +326,12 @@ public class Scanner extends AppCompatActivity {
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scanner);
-        String welcome_text = getIntent().getStringExtra("Welcome");
-        author_name = welcome_text;
-        String email = getIntent().getStringExtra("Email");
-        Bitmap btm = getIntent().getParcelableExtra("profile_photo");
-        if(btm != null){
-            ImageView img = this.findViewById(R.id.imageView);
-            img.setImageBitmap(btm);
-        }
-        if(welcome_text != null) {
-            welcome_text = "Welcome, " + welcome_text;
-            set_text(welcome_text, R.id.textView2);
-        }
-        else {
-            TextView tw = (TextView) findViewById(R.id.textView2);
-            tw.setVisibility(View.GONE);
-        }
-        if(email != null) set_text(email, R.id.textView4);
-        else{
-            TextView tw = (TextView) findViewById(R.id.textView4);
-            tw.setVisibility(View.GONE);
-        }
         init();
         registerForContextMenu(scannedImageView);
-        scannedImageView.setOnItemClickListener((parent, view, position, id) -> {
-                      open(position);
-        });
+        scannedImageView.setOnItemClickListener((parent, view, position, id) -> open(position));
         UUID = getIntent().getStringExtra("UUID");
-        sync_files_from_database();
-        storage_perm = getIntent().getBooleanExtra("permission", true);
+        Custom_loading_dialog sync = new Custom_loading_dialog(this);
+        new Sync_File(sync).execute();
     }
 
     @Override
@@ -291,30 +348,98 @@ public class Scanner extends AppCompatActivity {
          inflater.inflate(R.menu.scanner_main, menu);
     }
 
+
+    public void includesForDeleteFiles(String loc) {
+        Uri file = Uri.fromFile(new File(loc));
+        StorageReference verify = storage.getReference().child("data/" + UUID + "/" + file.getLastPathSegment());
+        verify.delete().addOnSuccessListener(aVoid -> {
+        }).addOnFailureListener(Throwable::printStackTrace);
+    }
+
+
+    public class Exists_File{
+        String loc;
+        Exists_File(String loc) { this.loc = loc; }
+
+        public boolean verify(){
+            storage = FirebaseStorage.getInstance();
+            Uri file = Uri.fromFile(new File(loc));
+            StorageReference verify = storage.getReference().child("data/" + UUID + "/" + file.getLastPathSegment());
+            try { verify.getDownloadUrl(); } catch(Exception e) { e.printStackTrace(); return false; }
+            return true;
+        }
+    }
+
+    private void upload_pdf(String location){
+        Uri file;
+        try {
+            file = Uri.fromFile(new File(location));
+        }
+        catch (Exception e){
+            e.printStackTrace();
+            return;
+        }
+        StorageReference storageRef = storage.getReference();
+        UploadTask uploadTask = storageRef.child("data/" + UUID + "/" + file.getLastPathSegment()).putFile(file);
+        uploadTask.addOnProgressListener(taskSnapshot -> { }).addOnPausedListener(taskSnapshot -> Log.d("", "Upload is paused")).addOnFailureListener(exception -> { }).addOnSuccessListener(taskSnapshot -> { });
+    }
+
+    private void clearAppData() {
+        try {
+            if (Build.VERSION_CODES.KITKAT <= Build.VERSION.SDK_INT) {
+                ((ActivityManager)getSystemService(ACTIVITY_SERVICE)).clearApplicationUserData();
+            } else {
+                String packageName = getApplicationContext().getPackageName();
+                Runtime runtime = Runtime.getRuntime();
+                runtime.exec("pm clear " + packageName);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
     void refresh(){
         finish();
         startActivity(getIntent());
     }
 
-    void log_out(){
-        Thread delete_files_from_storage = new Thread( () -> {
-            for (int i = 0; i < pdf_locations.size(); i++) {
-                delete(i, false, false);
-            }
-            clearAppData();
-        });
-        delete_files_from_storage.start();
-        while(delete_files_from_storage.isAlive()){ }
-    }
 
+    @SuppressLint("NonConstantResourceId")
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setCancelable(true);
+        builder.setNegativeButton(
+                "No",
+                (dialog, id) -> dialog.cancel());
         switch (item.getItemId()) {
             case R.id.action_settings:
-                log_out();
+                builder.setMessage("Do you really want to sign out?");
+                builder.setPositiveButton(
+                        "Yes",
+                        (dialog, id) -> {
+                            Custom_loading_dialog signout = new Custom_loading_dialog(this, "You'll be sign out in the next moment");
+                            new Sign_Out(signout).execute();
+                        });
+                AlertDialog sgout = builder.create();
+                sgout.show();
                 return true;
             case R.id.refresh:
                 refresh();
+                return true;
+            case R.id.reset:
+                builder.setMessage("Do you really want to reset the data?");
+                builder.setPositiveButton(
+                        "Yes",
+                        (dialog, id) -> {
+                            Custom_loading_dialog reset_t = new Custom_loading_dialog(this, "The data will be deleted, please wait");
+                            new Reset_all(reset_t).execute();
+                        });
+                AlertDialog resetout = builder.create();
+                resetout.show();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -328,7 +453,23 @@ public class Scanner extends AppCompatActivity {
         AdapterContextMenuInfo info  = (AdapterContextMenuInfo) item.getMenuInfo();
         switch(item.getItemId()){
             case R.id.delete_id:
-                delete(info.position, true, true);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage("Do you really want to delete?");
+                builder.setCancelable(true);
+                builder.setPositiveButton(
+                        "Yes",
+                        (dialog, id) -> {
+                              Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "The selected data will be deleted, please wait.");
+                              new Delete(delete_msg, info.position).execute();
+                        });
+
+                builder.setNegativeButton(
+                        "No",
+                        (dialog, id) -> dialog.cancel());
+
+                AlertDialog alert11 = builder.create();
+                alert11.show();
                 return true;
 
             case R.id.share_id:
@@ -366,12 +507,29 @@ public class Scanner extends AppCompatActivity {
 
     protected void delete(int position, boolean db, boolean notification) {
         String loc = pdf_locations.get(position);
-        if(!db) {
-            if (Exists_File(loc)) {
-                Thread delete_from_database = new Thread(() -> {
+        if(db) {
+            Thread thread = new Thread( () -> {
+                Exists_File object = new Exists_File(loc);
+                ExecutorService threadpool = Executors.newCachedThreadPool();
+                Future<Boolean> futureTask = threadpool.submit(object::verify);
+                boolean retrieve = false;
+                try {
+                    retrieve = futureTask.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
+                threadpool.shutdown();
+                if (retrieve)
                     includesForDeleteFiles(loc);
-                });
-                delete_from_database.start();
+            });
+            thread.start();
+            while (thread.isAlive()) {
+                try {
+                   Thread.sleep(2000);
+                }
+                catch (Exception e){
+                   e.printStackTrace();
+               }
             }
         }
         File outputFile = new File(loc);
@@ -379,9 +537,7 @@ public class Scanner extends AppCompatActivity {
             if (outputFile.exists()) if (!outputFile.delete()) throw new Exception();
             arrayList.remove(position);
             adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
-            scannedImageView.setAdapter(adapter);
             pdf_locations.remove(position);
-            if (arrayList.size() == 0) empty_message.setVisibility(View.VISIBLE);
         }
         catch (Exception e){
              e.getMessage();
@@ -422,13 +578,12 @@ public class Scanner extends AppCompatActivity {
 
 
     protected String CreatePDFandSave(String filename, Document standard) {
-        if(storage_perm) {
-            String savedocument;
+            String Save_document;
             try {
                 File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data", "/PDFScanner");
                 if (!dir.exists() && !dir.mkdirs()) throw new Exception();
-                savedocument = getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner" + "/" + filename + ".pdf";
-                PdfWriter.getInstance(standard, new FileOutputStream(savedocument));
+                Save_document = getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner" + "/" + filename + ".pdf";
+                PdfWriter.getInstance(standard, new FileOutputStream(Save_document));
                 standard.open();
                 for (int i = 0; i < data_photo.size(); i++) {
                     Bitmap bitmap = data_photo.get(i);
@@ -440,16 +595,13 @@ public class Scanner extends AppCompatActivity {
                     standard.newPage();
                 }
                 standard.close();
-                File t = new File(savedocument);
+                File t = new File(Save_document);
                 if (!t.exists()) throw new Exception();
             } catch (Exception e) {
                 e.printStackTrace();
-                storage_perm = false;
                 return null;
             }
-            return savedocument;
-        }
-        return null;
+            return Save_document;
     }
 
    @SuppressLint("DefaultLocale")
@@ -459,33 +611,70 @@ public class Scanner extends AppCompatActivity {
         return size + " B";
    }
 
-   boolean storage_perm = false;
+
+   protected <T> void swap_array_list(ArrayList<T> array, int pos1, int pos2){
+          T temp = array.get(pos1);
+          array.set(pos1, array.get(pos2));
+          array.set(pos2, temp);
+   }
+
+   protected <T> int partition(ArrayList<T> array, int low, int high,  java.util.Comparator<? super T> c){
+        T pivot = array.get(high);
+        int index = low - 1;
+        for (int jndex = low; jndex < high; jndex++){
+            try {
+                if (c.compare(array.get(jndex), pivot) <= 0) {
+                    index++;
+                    swap_array_list(array, index, jndex);
+                }
+            }
+            catch (NullPointerException | ClassCastException e){
+                    e.printStackTrace();
+            }
+        }
+        swap_array_list(array, index + 1, high);
+        return index + 1;
+   }
+
+   protected <T> void qsort(ArrayList<T> array, java.util.Comparator<? super T> c) {
+            int high = array.size();
+            qsort(array, 0, high - 1, c);
+   }
+
+   protected <T> void qsort(ArrayList<T> array, int low, int high, java.util.Comparator<? super T> c){
+         if(low < high){
+             int p = partition(array, low, high, c);
+             qsort(array, low, p - 1 , c);
+             qsort(array, p + 1, high, c);
+         }
+   }
+
+
     @SuppressLint("SimpleDateFormat")
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        calendar = Calendar.getInstance();
-        SimpleDateFormat datenameFormat = new SimpleDateFormat("MM_dd_yyyy_HH_mm_ss");
+        Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat datetimeFormat = new SimpleDateFormat("MM_dd_yyyy_HH_mm_ss");
         if (requestCode == 1) {
             if (resultCode == RESULT_OK) {
-                storage_perm = true;
-                Thread get_array_parceable = new Thread( () -> {
-                    data_photo = multiple_document_scanned_mode.getter();
-                });
-                get_array_parceable.start();
-                while(get_array_parceable.isAlive()) { }
+                data_photo = Multiple_scan.getter();
                 Document document = new Document();
-                String loc = null;
-                loc = CreatePDFandSave("PDF_" + datenameFormat.format(calendar.getTime()), document);
-                if(storage_perm) {
-                    upload_pdf(loc);
-                    pdf_locations.add(loc);
-                    File file = new File(loc);
-                    arrayList.add(new PDF_Scanned("\nPDF_" + datenameFormat.format(calendar.getTime()) + ".pdf", size_conversion((int) file.length())));
-                    if(arrayList.size() != 0) empty_message.setVisibility(View.GONE);
-                    adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
-                    scannedImageView.setAdapter(adapter);
+                String loc = CreatePDFandSave("PDF_" + datetimeFormat.format(calendar.getTime()), document);
+                upload_pdf(loc);
+                pdf_locations.add(loc);
+                arrayList.add(new PDF_Scanned("PDF_" + datetimeFormat.format(calendar.getTime()) + ".pdf", size_conversion((int) new File(loc).length()), new File(loc).length()));
+                if(arrayList.size() != 0) {
+                    empty_message.setVisibility(View.GONE);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        arrayList.sort(new PDF_Scanned_operator());
+                    }
+                    else{
+                        qsort(arrayList, new PDF_Scanned_operator());
+                    }
                 }
+                adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
+                scannedImageView.setAdapter(adapter);
             }
         }
     }

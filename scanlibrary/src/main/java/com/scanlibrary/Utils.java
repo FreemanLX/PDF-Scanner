@@ -1,6 +1,8 @@
 package com.scanlibrary;
+import android.app.VoiceInteractor;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
 import androidx.annotation.NonNull;
@@ -21,6 +23,6 @@ public class Utils {
     }
 
     public static Bitmap getBitmap(Context context, Uri uri) throws IOException {
-        return MediaStore.Images.Media.getBitmap(context.getContentResolver(), uri);
+       return MediaStore.Images.Media.getBitmap(context.getContentResolver(), uri);
     }
 }

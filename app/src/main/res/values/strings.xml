@@ -49,4 +49,10 @@
     <string name="menu_slideshow">Slideshow</string>
     <string name="scan_a_document">Scan a document</string>
     <string name="title_activity_pdf_view_act">pdf_view_act</string>
+    <string name="delete">Delete</string>
+    <string name="share">Share</string>
+    <string name="open">Open</string>
+    <string name="reset_all_data">Reset all data</string>
+    <string name="sign_out">Sign out</string>
+    <string name="refresh">Refresh</string>
 </resources>

@@ -1,5 +1,5 @@
 package com.scanlibrary;
-
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
@@ -11,7 +11,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,13 +24,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Created by jhansi on 29/03/15.
  */
 public class ScanFragment extends Fragment {
 
-    private Button scanButton;
     private ImageView sourceImageView;
     private FrameLayout sourceFrame;
     private PolygonView polygonView;
@@ -49,6 +48,7 @@ public class ScanFragment extends Fragment {
         this.scanner = (IScanner) activity;
     }
 
+    @SuppressLint("InflateParams")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         view = inflater.inflate(R.layout.scan_fragment_layout, null);
@@ -62,7 +62,7 @@ public class ScanFragment extends Fragment {
 
     private void init() {
         sourceImageView = (ImageView) view.findViewById(R.id.sourceImageView);
-        scanButton = (Button) view.findViewById(R.id.scanButton);
+        Button scanButton = (Button) view.findViewById(R.id.scanButton);
         scanButton.setOnClickListener(new ScanButtonClickListener());
         sourceFrame = (FrameLayout) view.findViewById(R.id.sourceFrame);
         polygonView = (PolygonView) view.findViewById(R.id.polygonView);
@@ -122,7 +122,6 @@ public class ScanFragment extends Fragment {
         float y2 = points[5];
         float y3 = points[6];
         float y4 = points[7];
-
         List<PointF> pointFs = new ArrayList<>();
         pointFs.add(new PointF(x1, y1));
         pointFs.add(new PointF(x2, y2));
@@ -176,21 +175,22 @@ public class ScanFragment extends Fragment {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), m, true);
     }
 
-    private Bitmap getScannedBitmap(Bitmap original, Map<Integer, PointF> points) {
+   private Bitmap getScannedBitmap(Bitmap original, Map<Integer, PointF> points) {
         float xRatio = (float) original.getWidth() / sourceImageView.getWidth();
         float yRatio = (float) original.getHeight() / sourceImageView.getHeight();
 
-        float x1 = (points.get(0).x) * xRatio;
-        float x2 = (points.get(1).x) * xRatio;
-        float x3 = (points.get(2).x) * xRatio;
-        float x4 = (points.get(3).x) * xRatio;
-        float y1 = (points.get(0).y) * yRatio;
-        float y2 = (points.get(1).y) * yRatio;
-        float y3 = (points.get(2).y) * yRatio;
-        float y4 = (points.get(3).y) * yRatio;
+        float x1 = (Objects.requireNonNull(points.get(0)).x) * xRatio;
+        float x2 = (Objects.requireNonNull(points.get(1)).x) * xRatio;
+        float x3 = (Objects.requireNonNull(points.get(2)).x) * xRatio;
+        float x4 = (Objects.requireNonNull(points.get(3)).x) * xRatio;
+        float y1 = (Objects.requireNonNull(points.get(0)).y) * yRatio;
+        float y2 = (Objects.requireNonNull(points.get(1)).y) * yRatio;
+        float y3 = (Objects.requireNonNull(points.get(2)).y) * yRatio;
+        float y4 = (Objects.requireNonNull(points.get(3)).y) * yRatio;
         return ((ScanActivity) getActivity()).getScannedBitmap(original, x1, y1, x2, y2, x3, y3, x4, y4);
     }
 
+    @SuppressLint("StaticFieldLeak")
     private class ScanAsyncTask extends AsyncTask<Void, Void, Bitmap> {
         private Map<Integer, PointF> points;
         public ScanAsyncTask(Map<Integer, PointF> points) {

@@ -1,5 +1,6 @@
 package com.scanlibrary;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Intent;
@@ -8,11 +9,18 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import androidx.core.content.FileProvider;
+import java.io.File;
 import java.io.IOException;
+import java.util.Date;
+import java.text.SimpleDateFormat;
+
+import static android.os.Environment.getExternalStorageDirectory;
 
 public class PickImageFragment extends Fragment {
 
@@ -68,9 +76,26 @@ public class PickImageFragment extends Fragment {
         }
     }
 
+    Uri file;
 
+    @SuppressLint({"SimpleDateFormat", "QueryPermissionsNeeded"})
     public void openCamera() {
-         startActivityForResult( new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE), ScanConstants.OPEN_CAMERA);
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if(intent.resolveActivity(this.getActivity().getPackageManager()) != null) {
+            File imgfile = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/data/PDFScanner/" + new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ".png");
+            try {
+                if(!imgfile.createNewFile()){
+                    throw new IOException();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (imgfile != null) {
+                file = FileProvider.getUriForFile(this.getActivity(), "com.example.pdfscanner.provider", imgfile);
+                intent.putExtra(MediaStore.EXTRA_OUTPUT, file);
+                startActivityForResult(intent, ScanConstants.OPEN_CAMERA);
+            }
+        }
     }
 
     public void openMediaContent(){
@@ -87,7 +112,8 @@ public class PickImageFragment extends Fragment {
             try {
                 switch (requestCode) {
                     case ScanConstants.OPEN_CAMERA:
-                        bitmap = (Bitmap) data.getExtras().get("data");
+                        bitmap = getBitmap(file);
+                        this.getActivity().getContentResolver().delete(file, null, null);
                         break;
 
                     case ScanConstants.PICKFILE_REQUEST_CODE:

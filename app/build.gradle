@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.pdfscanner"
-        minSdkVersion 24
+        minSdkVersion 19
         targetSdkVersion 30
         versionCode 1
         versionName "1.1_alpha"

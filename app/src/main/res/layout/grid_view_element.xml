@@ -5,8 +5,9 @@
     android:layout_height="match_parent">
 
     <ImageView
-        android:layout_width="117dp"
         android:id="@+id/imglist"
-        android:layout_height="170dp"
+        android:scaleType="fitXY"
+        android:layout_width="111dp"
+        android:layout_height="149dp"
         android:src="@mipmap/ic_launcher" />
 </RelativeLayout>
