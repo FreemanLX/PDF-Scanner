@@ -48,6 +48,9 @@ public class MainActivity<mAuth> extends AppCompatActivity{
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+
         FirebaseApp.initializeApp(this.getApplicationContext());
         try {
             mAuth = FirebaseAuth.getInstance();
@@ -177,7 +180,15 @@ public class MainActivity<mAuth> extends AppCompatActivity{
 
     protected void configureNextButton() {
         Button button = (Button) findViewById(R.id.button);
+        Button guest = (Button) findViewById(R.id.button5);
         button.setOnClickListener(v -> signIn());
+        guest.setOnClickListener(v -> guest());
+    }
+
+    public void guest(){
+        Intent scanner = new Intent(this, Scanner.class);
+        scanner.putExtra("Guest", true);
+        startActivity(scanner);
     }
 
     public final int cks(String self) {

@@ -1,6 +1,5 @@
 package com.example.pdfscanner;
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -19,7 +18,8 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.GridView;
 import android.widget.ImageView;
-import com.example.pdfscanner.ui.reload_variables;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import com.scanlibrary.ScanActivity;
 import com.scanlibrary.ScanConstants;
 import java.io.IOException;
@@ -73,7 +73,7 @@ public class Multiple_scan extends AppCompatActivity {
         init();
         if(savedInstanceState != null){
             arrayList = new ArrayList<>();
-            arrayList = reload_variables.Getter();
+            arrayList = Reload_variables.Getter();
             adapter = new image_adapter(this, R.layout.grid_view_element, arrayList);
         }
         gridView.setOnItemClickListener((parent, view, position, id) -> {
@@ -87,20 +87,14 @@ public class Multiple_scan extends AppCompatActivity {
         }
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int width = displayMetrics.widthPixels;
-        int height = displayMetrics.heightPixels;
-        if(width > height) {
-            ViewGroup.LayoutParams params = gridView.getLayoutParams();
-            params.width = width/2;
-            gridView.setLayoutParams(params);
-        }
+        setTitle("PDFScanner - Scan a document");
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState)
     {
         super.onSaveInstanceState(outState);
-        reload_variables x = new reload_variables(arrayList);
+        Reload_variables x = new Reload_variables(arrayList);
     }
 
 

@@ -28,56 +28,61 @@
 
     <TextView
         android:id="@+id/textView2"
-        android:layout_width="190dp"
+        android:layout_width="0dp"
         android:layout_height="24dp"
+        android:layout_marginStart="100dp"
+        android:gravity="left"
         android:text="@string/nav_header_title"
         android:textColor="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.529"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.06" />
+        app:layout_constraintVertical_bias="0.037" />
 
     <TextView
         android:id="@+id/textView4"
-        android:layout_width="200dp"
-        android:layout_height="27dp"
+        android:layout_width="0dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="100dp"
+        android:layout_marginEnd="8dp"
+        android:gravity="left"
         android:text="@string/nav_header_subtitle"
+        android:textColor="@color/white"
         app:layout_constraintBottom_toTopOf="@+id/textView2"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.563"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0"
-        android:textColor="@color/white"
-        />
+        app:layout_constraintVertical_bias="0.34" />
 
     <FrameLayout
-        android:layout_width="394dp"
-        android:layout_height="539dp"
+        android:layout_width="match_parent"
+        android:layout_height="0sp"
+        android:layout_marginTop="100dp"
+        android:layout_marginBottom="50dp"
+        android:layout_weight="1"
         android:background="@color/white"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.47"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.802"
-        android:orientation="vertical"
-        >
+        app:layout_constraintVertical_bias="0.802">
 
         <TextView
+            android:id="@+id/empty_mes"
             style="@style/TextAppearance.AppCompat.SearchResult.Subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal|center"
-            android:text="You don't have PDFs scanned until now"
-            android:id = "@+id/empty_mes"/>
+            android:text="You don't have PDFs scanned until now" />
 
         <ListView
             android:id="@+id/listview"
-            android:layout_width="381dp"
-            android:layout_height="414dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="100dp"
             android:divider="#FFCC00"
             android:dividerHeight="2dp"
             android:focusable="false"
@@ -89,7 +94,8 @@
             android:layout_width="193dp"
             android:layout_height="48dp"
             android:layout_gravity="bottom|center"
-            android:layout_marginBottom="50dp"
+            android:layout_marginTop="100dp"
+            android:layout_marginBottom="25dp"
             android:background="@color/blue"
             android:text="@string/scan_a_document"
             android:textColor="@color/white"

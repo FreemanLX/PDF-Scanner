@@ -4,24 +4,22 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Multiple_scan"
     android:background="@drawable/side_nav_bar"
-    tools:ignore="HardcodedText"
-    >
+    tools:context=".Multiple_scan"
+    tools:ignore="HardcodedText">
 
 
     <TextView
         android:id="@+id/textView4"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="17dp"
-        android:layout_marginTop="37dp"
-        android:text="Scan a document"
-        android:textSize="25dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="20dp"
+        android:text="Scan more pages"
         android:textColor="@color/white"
-        />
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <Button
         android:id="@+id/button2"
@@ -49,38 +47,27 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="28dp"
-        android:layout_marginTop="20dp"
+        android:layout_marginEnd="131dp"
+        android:layout_marginBottom="200dp"
         android:text="@string/camera"
-        app:layout_constraintStart_toEndOf="@+id/button2"
-        app:layout_constraintTop_toBottomOf="@+id/textView3" />
-
-    <TextView
-        android:id="@+id/textView3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="228dp"
-        android:text="Scan more pages:"
-        android:textColor="@color/white"
-        android:textSize="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintEnd_toStartOf="@+id/gridview"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/button2" />
 
     <GridView
         android:id="@+id/gridview"
-        android:numColumns="auto_fit"
         android:layout_width="430dp"
         android:layout_height="match_parent"
         android:layout_marginStart="13dp"
-        android:layout_marginTop="51dp"
-        android:layout_marginEnd="13dp"
-        android:stretchMode="columnWidth"
-        android:layout_marginBottom="38dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="20dp"
+        android:layout_marginEnd = "13dp"
         android:background="@color/white"
-        app:layout_constraintBottom_toTopOf="@+id/textView3"
+        android:numColumns="auto_fit"
+        android:stretchMode="columnWidth"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.989"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/textView4"
-        app:layout_constraintVertical_bias="0.195" />
+        app:layout_constraintTop_toTopOf="@+id/textView4" />
 </androidx.constraintlayout.widget.ConstraintLayout>

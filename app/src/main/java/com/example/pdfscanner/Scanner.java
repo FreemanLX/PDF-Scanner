@@ -1,16 +1,10 @@
 package com.example.pdfscanner;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -19,16 +13,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.ContextMenu;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.AdapterView.AdapterContextMenuInfo;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.storage.FirebaseStorage;
@@ -43,11 +34,6 @@ import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Comparator;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -57,153 +43,25 @@ import static android.os.Environment.getExternalStorageDirectory;
 
 public class Scanner extends AppCompatActivity {
     private ListView scannedImageView;
+    private boolean guest = false;
     PDF_Adapter adapter;
     ArrayList<Bitmap> data_photo;
     ArrayList<String> pdf_locations;
     TextView empty_message;
     FirebaseStorage storage;
     private String UUID;
-
-    public static class PDF_Scanned {
-        String name, size;
-        long size_int;
-        PDF_Scanned(String name, String size) {
-            this.name = name;
-            this.size = size;
-        }
-        PDF_Scanned(String name, String size, long size_int){
-            this.name = name;
-            this.size = size;
-            this.size_int = size_int;
-        }
-        public String getName() {
-            return "File name: " + name;
-        }
-        public void setName(String name) {
-            this.name = name;
-        }
-        public String getSize() {
-            return "File size: " + size;
-        }
-        public long getSizeInt(){
-            return size_int;
-        }
-
-    }
-
     ArrayList<PDF_Scanned> arrayList = new ArrayList<>();
 
-    public static class PDF_Adapter extends ArrayAdapter<PDF_Scanned> {
-        private final Context context;
-        private final int resource;
-        public PDF_Adapter(@NonNull Context context, int resource, @NonNull ArrayList<PDF_Scanned> objects) {
-            super(context, resource, objects);
-            this.context = context;
-            this.resource = resource;
-        }
-
-        @SuppressLint("ViewHolder")
-        @NonNull
-        @Override
-        public View getView(int position, View convertView, @NonNull ViewGroup parent) {
-            LayoutInflater layoutInflater = LayoutInflater.from(context);
-            convertView = layoutInflater.inflate(resource, parent, false);
-            TextView name = convertView.findViewById(R.id.textlist);
-            TextView size = convertView.findViewById(R.id.textlist_size);
-            name.setText(getItem(position).getName());
-            size.setText(getItem(position).getSize());
-            return convertView;
-        }
-    }
-
-
-    class PDF_Scanned_operator implements Comparator<PDF_Scanned> {
-        public int compare(Scanner.PDF_Scanned obj, Scanner.PDF_Scanned obj1) {
-            long obj_size = obj.getSizeInt();
-            long obj1_size = obj1.getSizeInt();
-            return Long.compare(obj_size, obj1_size);
-        }
-    }
-
-    protected void sync_files_from_database() {
-        Thread thread = new Thread( () -> {
-        try {
-            File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data", "/PDFScanner");
-            if (!dir.exists() && !dir.mkdirs()) throw new Exception();
-        }
-        catch (Exception e){
-            e.printStackTrace();
-            return;
-        }
-        StorageReference listRef = storage.getReference();
-        listRef.child("data/" + UUID ).listAll().addOnSuccessListener(listResult -> {
-            for (StorageReference prefix : listResult.getItems()) {
-                    String filename = prefix.getName();
-                    File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner/" + filename);
-                    if(!dir.exists()) {
-                        try {
-                            if(!dir.createNewFile()) throw new Exception();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    prefix.getFile(dir).addOnSuccessListener(taskSnapshot -> { });
-            }});});
-        thread.start();
-        while(thread.isAlive()){
-            try {
-                Thread.sleep(2000);
-            }
-            catch (InterruptedException e){
-                 e.printStackTrace();
-            }
-        }
-    }
-
-    protected void Read_files(){
-        Thread thread_for_read = new Thread ( ()-> {
-            File dir = new File(getExternalStorageDirectory().getAbsolutePath() + "/Android/Data/PDFScanner");
-            File[] listFile = dir.listFiles();
-            if (listFile != null) {
-                for (File file : listFile) {
-                    pdf_locations.add(file.getAbsolutePath());
-                    long len = file.length();
-                    arrayList.add(new PDF_Scanned(file.getName(), size_conversion((int) len), len));
-                }
-            }
-        });
-        thread_for_read.start();
-        while(thread_for_read.isAlive()){
-             try{
-                 Thread.sleep(1000);
-             }
-             catch (Exception e){
-                 e.printStackTrace();
-             }
-
-        }
-    }
 
     protected void after_sort(){
-        Thread preparing_for_sort = new Thread( ()->{
         if(arrayList.size() > 0) {
+            QuickSort<PDF_Scanned> quickSort = new QuickSort<>(arrayList, new PDF_Scanned_operator());
             try {
-                qsort(arrayList, new PDF_Scanned_operator());
+                quickSort.sort();
+                arrayList = quickSort.getArrayList();
             }
-            catch (Exception e){
-                e.printStackTrace();
-            }
-        } });
-        preparing_for_sort.start();
-        while (preparing_for_sort.isAlive()){
-            try {
-                Thread.sleep(1000);
-            }
-            catch (Exception e){
-                e.printStackTrace();
-            }
+            catch (Exception e){ e.printStackTrace(); }
         }
-
     }
 
     protected void set_lists(){
@@ -220,44 +78,83 @@ public class Scanner extends AppCompatActivity {
         update.setText(s);
     }
 
-    protected void hide_text(int id){
-        TextView tw = (TextView) findViewById(id);
-        tw.setVisibility(View.GONE);
-    }
 
     protected boolean verify_text(String text){
           return text.length() > 0 && text.length() < 20;
     }
 
     private void init() {
-        String welcome_text = getIntent().getStringExtra("Welcome");
-        String email = getIntent().getStringExtra("Email");
-        Bitmap btm = getIntent().getParcelableExtra("profile_photo");
-        ImageView img = this.findViewById(R.id.imageView);
-        img.setImageBitmap(btm);
-        if(verify_text(welcome_text) && verify_text(email)){
-            set_text("Welcome, " + welcome_text, R.id.textView2);
-            set_text(email, R.id.textView4);
+        guest = getIntent().getBooleanExtra("Guest", false);
+        if(!guest) {
+            ImageView img = this.findViewById(R.id.imageView);
+            String welcome_text = getIntent().getStringExtra("Welcome");
+            String email = getIntent().getStringExtra("Email");
+            Bitmap btm = getIntent().getParcelableExtra("profile_photo");
+            setTitle("PDFScanner - User: " + welcome_text);
+            img.setImageBitmap(btm);
+            if (verify_text(welcome_text) && verify_text(email)) {
+                set_text("Welcome, " + welcome_text, R.id.textView2);
+                set_text(email, R.id.textView4);
+            }
+            if (verify_text(welcome_text) && !verify_text(email)) {
+                set_text("Welcome, " + welcome_text, R.id.textView4);
+                new Hide_context_data<TextView>(this, R.id.textView2).set();
+            }
         }
-        if(verify_text(welcome_text) && !verify_text(email)){
-              set_text("Welcome, " + welcome_text, R.id.textView4);
-              hide_text(R.id.textView2);
+        else{
+            setTitle("PDFScanner - Guest");
+            new Hide_context_data<TextView>(this, R.id.textView4).set();
+            new Hide_context_data<TextView>(this, R.id.textView2).set();
+            new Hide_context_data<ImageView>(this, R.id.imageView).set();
         }
-
         scannedImageView = (ListView) findViewById(R.id.listview);
         Button scanButton = (Button) findViewById(R.id.mediaButton);
         scanButton.setOnClickListener(v -> startActivityForResult(new Intent(Scanner.this, Multiple_scan.class), 1));
         data_photo = new ArrayList<>();
         pdf_locations = new ArrayList<>();
         empty_message = (TextView) findViewById(R.id.empty_mes);
-        try {
-            FirebaseApp.initializeApp(this.getApplicationContext());
+        if(!guest) {
+            try {
+                FirebaseApp.initializeApp(this.getApplicationContext());
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+            storage = FirebaseStorage.getInstance();
         }
-        catch (Exception e){
-            e.printStackTrace();
-        }
-        storage = FirebaseStorage.getInstance();
     }
+
+    @SuppressLint("StaticFieldLeak")
+    private class Reset_all extends AsyncTask<String, Integer, Boolean> {
+        Custom_loading_dialog general;
+        Reset_all(Custom_loading_dialog obj){ general = obj; general.LoadingDialog(); }
+        protected Boolean doInBackground(String... strings) {
+            int i = 0;
+            while(i < pdf_locations.size()){
+                if(!guest){
+                    Exists_File exists_file = new Exists_File(pdf_locations.get(i), UUID);
+                    Sync_Exists_File obj = new Sync_Exists_File(exists_file);
+                    obj.start();
+                    try {
+                        obj.join();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    if(exists_file.getResult()) {
+                        Sync_DeleteDB sync_deleteDB = new Sync_DeleteDB(new DeleteDB(pdf_locations.get(i), UUID));
+                        sync_deleteDB.start();
+                    }
+                }
+                delete(i, false);
+                i++;
+            }
+            clearAppData();
+            return true;
+        }
+        protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
+        protected void onPostExecute(Boolean result) { }
+    }
+
 
     @SuppressLint("StaticFieldLeak")
     private class Sync_File extends AsyncTask<String, Integer, Boolean> {
@@ -266,7 +163,32 @@ public class Scanner extends AppCompatActivity {
                  general = obj;
                  general.LoadingDialog();
         }
-        protected Boolean doInBackground(String... strings) { sync_files_from_database(); Read_files(); after_sort(); return true; }
+        protected Boolean doInBackground(String... strings) {
+            if(!guest) {
+                Sync_Thread obj = new Sync_Thread(new Sync_data(UUID));
+                obj.start();
+                while(obj.isAlive()) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            Read_files read_files = new Read_files(pdf_locations, arrayList);
+            pdf_locations = read_files.getLocations();
+            arrayList =  read_files.getPdf_scanned();
+            Sync_Read_Files sync_read_files = new Sync_Read_Files(read_files);
+            sync_read_files.start();
+            try {
+                sync_read_files.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            after_sort();
+            return true;
+        }
         protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
         protected void onPostExecute(Boolean result) { this.general.stop(); set_lists(); }
     }
@@ -280,25 +202,28 @@ public class Scanner extends AppCompatActivity {
             this.position = position;
             general.LoadingDialog();
         }
-        protected Boolean doInBackground(String... strings) { delete(position, true, true); return true; }
+        protected Boolean doInBackground(String... strings) {
+            if(!guest){
+                Exists_File exists_file = new Exists_File(pdf_locations.get(position), UUID);
+                Sync_Exists_File obj = new Sync_Exists_File(exists_file);
+                obj.start();
+                if(exists_file.getResult()) {
+                    Sync_DeleteDB sync_deleteDB = new Sync_DeleteDB(new DeleteDB(pdf_locations.get(position), UUID));
+                    sync_deleteDB.start();
+                    try {
+                        sync_deleteDB.join();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            delete(position, true);
+            return true;
+        }
         protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
         protected void onPostExecute(Boolean result) { this.general.stop(); refresh();}
     }
 
-
-    @SuppressLint("StaticFieldLeak")
-    private class Reset_all extends AsyncTask<String, Integer, Boolean> {
-        Custom_loading_dialog general;
-        Reset_all(Custom_loading_dialog obj){ general = obj; general.LoadingDialog(); }
-        protected Boolean doInBackground(String... strings) {
-            int i = 0;
-            while(i < pdf_locations.size()){ delete(i, true, false); }
-            clearAppData();
-            return true;
-        }
-        protected void onProgressUpdate(Integer... progress) { this.general.setProgressBar(progress[0]); }
-        protected void onPostExecute(Boolean result) { }
-    }
 
     @SuppressLint("StaticFieldLeak")
     private class Sign_Out extends AsyncTask<String, Integer, Boolean> {
@@ -309,8 +234,7 @@ public class Scanner extends AppCompatActivity {
         }
         protected Boolean doInBackground(String... strings) {
             int i = 0;
-            try { Thread.sleep(2000); } catch (InterruptedException e) { e.printStackTrace(); }
-            while(i < pdf_locations.size()){ delete(i, false, false); }
+            while(i < pdf_locations.size()){ delete(i, false); }
             clearAppData();
             return true;
         }
@@ -327,10 +251,11 @@ public class Scanner extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scanner);
         init();
+
         registerForContextMenu(scannedImageView);
         scannedImageView.setOnItemClickListener((parent, view, position, id) -> open(position));
         UUID = getIntent().getStringExtra("UUID");
-        Custom_loading_dialog sync = new Custom_loading_dialog(this);
+       Custom_loading_dialog sync = new Custom_loading_dialog(this);
         new Sync_File(sync).execute();
     }
 
@@ -349,36 +274,9 @@ public class Scanner extends AppCompatActivity {
     }
 
 
-    public void includesForDeleteFiles(String loc) {
-        Uri file = Uri.fromFile(new File(loc));
-        StorageReference verify = storage.getReference().child("data/" + UUID + "/" + file.getLastPathSegment());
-        verify.delete().addOnSuccessListener(aVoid -> {
-        }).addOnFailureListener(Throwable::printStackTrace);
-    }
 
-
-    public class Exists_File{
-        String loc;
-        Exists_File(String loc) { this.loc = loc; }
-
-        public boolean verify(){
-            storage = FirebaseStorage.getInstance();
-            Uri file = Uri.fromFile(new File(loc));
-            StorageReference verify = storage.getReference().child("data/" + UUID + "/" + file.getLastPathSegment());
-            try { verify.getDownloadUrl(); } catch(Exception e) { e.printStackTrace(); return false; }
-            return true;
-        }
-    }
-
-    private void upload_pdf(String location){
-        Uri file;
-        try {
-            file = Uri.fromFile(new File(location));
-        }
-        catch (Exception e){
-            e.printStackTrace();
-            return;
-        }
+    private void upload_pdf(String location) throws Exception{
+        Uri file = Uri.fromFile(new File(location));
         StorageReference storageRef = storage.getReference();
         UploadTask uploadTask = storageRef.child("data/" + UUID + "/" + file.getLastPathSegment()).putFile(file);
         uploadTask.addOnProgressListener(taskSnapshot -> { }).addOnPausedListener(taskSnapshot -> Log.d("", "Upload is paused")).addOnFailureListener(exception -> { }).addOnSuccessListener(taskSnapshot -> { });
@@ -410,36 +308,43 @@ public class Scanner extends AppCompatActivity {
     @SuppressLint("NonConstantResourceId")
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setCancelable(true);
-        builder.setNegativeButton(
-                "No",
-                (dialog, id) -> dialog.cancel());
         switch (item.getItemId()) {
             case R.id.action_settings:
-                builder.setMessage("Do you really want to sign out?");
-                builder.setPositiveButton(
-                        "Yes",
-                        (dialog, id) -> {
-                            Custom_loading_dialog signout = new Custom_loading_dialog(this, "You'll be sign out in the next moment");
-                            new Sign_Out(signout).execute();
-                        });
-                AlertDialog sgout = builder.create();
-                sgout.show();
+                if(guest){
+                    Alert_Generator ag = new Alert_Generator(this, "You are logged as guest", Alert_Generator.OK);
+                    ag.show();
+                }
+                else{
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setCancelable(true);
+                    builder.setMessage("Do you really want to sign out?");
+                    builder.setNegativeButton("No", (dialog, id) -> {
+                        dialog.cancel();
+                    });
+                    builder.setPositiveButton("Yes", (dialog, id) -> {
+                        Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "Signing out, please wait.");
+                        new Sign_Out(delete_msg).execute();
+                    });
+                    AlertDialog alertDialog = builder.create();
+                    alertDialog.show();
+                }
                 return true;
             case R.id.refresh:
                 refresh();
                 return true;
             case R.id.reset:
-                builder.setMessage("Do you really want to reset the data?");
-                builder.setPositiveButton(
-                        "Yes",
-                        (dialog, id) -> {
-                            Custom_loading_dialog reset_t = new Custom_loading_dialog(this, "The data will be deleted, please wait");
-                            new Reset_all(reset_t).execute();
-                        });
-                AlertDialog resetout = builder.create();
-                resetout.show();
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setCancelable(true);
+                builder.setMessage("Do you really want to reset the selected item?");
+                builder.setNegativeButton("No", (dialog, id) -> {
+                    dialog.cancel();
+                });
+                builder.setPositiveButton("Yes", (dialog, id) -> {
+                    Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "The all data will be deleted, please wait.");
+                    new Reset_all(delete_msg).execute();
+                });
+                AlertDialog alertDialog = builder.create();
+                alertDialog.show();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -453,23 +358,19 @@ public class Scanner extends AppCompatActivity {
         AdapterContextMenuInfo info  = (AdapterContextMenuInfo) item.getMenuInfo();
         switch(item.getItemId()){
             case R.id.delete_id:
-
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setMessage("Do you really want to delete?");
                 builder.setCancelable(true);
-                builder.setPositiveButton(
-                        "Yes",
-                        (dialog, id) -> {
-                              Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "The selected data will be deleted, please wait.");
-                              new Delete(delete_msg, info.position).execute();
-                        });
-
-                builder.setNegativeButton(
-                        "No",
-                        (dialog, id) -> dialog.cancel());
-
-                AlertDialog alert11 = builder.create();
-                alert11.show();
+                builder.setMessage("Do you really want to delete the selected item?");
+                builder.setNegativeButton("No", (dialog, id) -> {
+                    dialog.cancel();
+                });
+                builder.setPositiveButton("Yes", (dialog, id) -> {
+                    Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "The selected data will be deleted, please wait.");
+                    new Delete(delete_msg, info.position).execute();
+                    dialog.cancel();
+                });
+                AlertDialog alertDialog = builder.create();
+                alertDialog.show();
                 return true;
 
             case R.id.share_id:
@@ -492,9 +393,7 @@ public class Scanner extends AppCompatActivity {
         File outputFile = new File(loc);
         if(outputFile.exists()) {
             Uri uri = FileProvider.getUriForFile(this, this.getPackageName() + ".provider", outputFile);
-            Intent intent=new Intent();
-            intent.setAction(Intent.ACTION_VIEW);
-            intent.setData(uri);
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
             intent.setType("application/pdf");
             try {
                 startActivity(Intent.createChooser(intent, null));
@@ -505,38 +404,12 @@ public class Scanner extends AppCompatActivity {
     }
 
 
-    protected void delete(int position, boolean db, boolean notification) {
+    protected void delete(int position, boolean notification) {
         String loc = pdf_locations.get(position);
-        if(db) {
-            Thread thread = new Thread( () -> {
-                Exists_File object = new Exists_File(loc);
-                ExecutorService threadpool = Executors.newCachedThreadPool();
-                Future<Boolean> futureTask = threadpool.submit(object::verify);
-                boolean retrieve = false;
-                try {
-                    retrieve = futureTask.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
-                threadpool.shutdown();
-                if (retrieve)
-                    includesForDeleteFiles(loc);
-            });
-            thread.start();
-            while (thread.isAlive()) {
-                try {
-                   Thread.sleep(2000);
-                }
-                catch (Exception e){
-                   e.printStackTrace();
-               }
-            }
-        }
         File outputFile = new File(loc);
         try {
-            if (outputFile.exists()) if (!outputFile.delete()) throw new Exception();
+            if (outputFile.exists() && !outputFile.delete()) throw new Exception();
             arrayList.remove(position);
-            adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
             pdf_locations.remove(position);
         }
         catch (Exception e){
@@ -544,19 +417,8 @@ public class Scanner extends AppCompatActivity {
              return;
         }
        if(notification) {
-           NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "PDFScanner notification")
-                   .setSmallIcon(R.drawable.ic_notifications_black_24dp)
-                   .setContentTitle("PDFScanner")
-                   .setContentText("File " + loc + " had been successfully deleted from our database!")
-                   .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                   .setAutoCancel(true);
-           NotificationManagerCompat managerCompat = NotificationManagerCompat.from(this);
-           managerCompat.notify(1, builder.build());
-           if (Build.VERSION.SDK_INT >= 26) {
-               NotificationChannel channel = new NotificationChannel("PDFScanner notification", "PDFScanner", NotificationManager.IMPORTANCE_HIGH);
-               NotificationManager manager = getSystemService(NotificationManager.class);
-               manager.createNotificationChannel(channel);
-           }
+           Notification_Generator ng = new Notification_Generator(this, "The file has been successfully deleted");
+           ng.show();
        }
     }
 
@@ -612,43 +474,6 @@ public class Scanner extends AppCompatActivity {
    }
 
 
-   protected <T> void swap_array_list(ArrayList<T> array, int pos1, int pos2){
-          T temp = array.get(pos1);
-          array.set(pos1, array.get(pos2));
-          array.set(pos2, temp);
-   }
-
-   protected <T> int partition(ArrayList<T> array, int low, int high,  java.util.Comparator<? super T> c){
-        T pivot = array.get(high);
-        int index = low - 1;
-        for (int jndex = low; jndex < high; jndex++){
-            try {
-                if (c.compare(array.get(jndex), pivot) <= 0) {
-                    index++;
-                    swap_array_list(array, index, jndex);
-                }
-            }
-            catch (NullPointerException | ClassCastException e){
-                    e.printStackTrace();
-            }
-        }
-        swap_array_list(array, index + 1, high);
-        return index + 1;
-   }
-
-   protected <T> void qsort(ArrayList<T> array, java.util.Comparator<? super T> c) {
-            int high = array.size();
-            qsort(array, 0, high - 1, c);
-   }
-
-   protected <T> void qsort(ArrayList<T> array, int low, int high, java.util.Comparator<? super T> c){
-         if(low < high){
-             int p = partition(array, low, high, c);
-             qsort(array, low, p - 1 , c);
-             qsort(array, p + 1, high, c);
-         }
-   }
-
 
     @SuppressLint("SimpleDateFormat")
     @Override
@@ -661,20 +486,26 @@ public class Scanner extends AppCompatActivity {
                 data_photo = Multiple_scan.getter();
                 Document document = new Document();
                 String loc = CreatePDFandSave("PDF_" + datetimeFormat.format(calendar.getTime()), document);
-                upload_pdf(loc);
-                pdf_locations.add(loc);
-                arrayList.add(new PDF_Scanned("PDF_" + datetimeFormat.format(calendar.getTime()) + ".pdf", size_conversion((int) new File(loc).length()), new File(loc).length()));
-                if(arrayList.size() != 0) {
-                    empty_message.setVisibility(View.GONE);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        arrayList.sort(new PDF_Scanned_operator());
-                    }
-                    else{
-                        qsort(arrayList, new PDF_Scanned_operator());
+                if(!guest) {
+                    try {
+                        upload_pdf(loc);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
-                adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
-                scannedImageView.setAdapter(adapter);
+                pdf_locations.add(loc);
+                long len = new File(loc).length();
+                if(len != 0){
+                    arrayList.add(new PDF_Scanned("PDF_" + datetimeFormat.format(calendar.getTime()) + ".pdf", size_conversion((int) len), len));
+                    if (arrayList.size() != 0) {
+                        empty_message.setVisibility(View.GONE);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            arrayList.sort(new PDF_Scanned_operator());
+                        }
+                    }
+                    adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
+                    scannedImageView.setAdapter(adapter);
+                }
             }
         }
     }

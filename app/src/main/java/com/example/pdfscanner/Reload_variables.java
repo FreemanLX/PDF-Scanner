@@ -1,12 +1,12 @@
-package com.example.pdfscanner.ui;
+package com.example.pdfscanner;
 import com.example.pdfscanner.Multiple_scan;
 
 import java.util.ArrayList;
 
-public class reload_variables {
+public class Reload_variables {
     static ArrayList<Multiple_scan.image_document_scanned> data;
 
-    public reload_variables(ArrayList<Multiple_scan.image_document_scanned> init){
+    public Reload_variables(ArrayList<Multiple_scan.image_document_scanned> init){
              data = new ArrayList<>();
              if(init == null){
                  return;
