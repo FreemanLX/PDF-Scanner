@@ -1,9 +1,9 @@
 package com.example.pdfscanner;
 
 public class Sync_Exists_File  extends Thread{
-     Exists_File obj;
+     FileVerifier obj;
 
-     Sync_Exists_File(Exists_File obj){
+     Sync_Exists_File(FileVerifier obj){
           this.obj = obj;
      }
 

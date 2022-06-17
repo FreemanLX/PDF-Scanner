@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,8 +21,10 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.scanlibrary.ScanActivity;
 import com.scanlibrary.ScanConstants;
+
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -41,8 +44,8 @@ public class Multiple_scan extends AppCompatActivity {
 
     ArrayList<image_document_scanned> arrayList = new ArrayList<>();
     class image_adapter extends ArrayAdapter<image_document_scanned> {
-        private Context context;
-        private int resource;
+        private final Context context;
+        private final int resource;
         public image_adapter(@NonNull Context context, int resource, @NonNull ArrayList<image_document_scanned> objects) {
             super(context, resource, objects);
             this.context = context;
@@ -63,7 +66,6 @@ public class Multiple_scan extends AppCompatActivity {
     Button cameraButton, mediaButton, savedButton;
     GridView gridView;
     image_adapter adapter;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -72,7 +74,6 @@ public class Multiple_scan extends AppCompatActivity {
         setContentView(R.layout.activity_multiple_scan);
         init();
         if(savedInstanceState != null){
-            arrayList = new ArrayList<>();
             arrayList = Reload_variables.Getter();
             adapter = new image_adapter(this, R.layout.grid_view_element, arrayList);
         }
@@ -88,13 +89,14 @@ public class Multiple_scan extends AppCompatActivity {
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
         setTitle("PDFScanner - Scan a document");
+
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState)
     {
         super.onSaveInstanceState(outState);
-        Reload_variables x = new Reload_variables(arrayList);
+        new Reload_variables(arrayList);
     }
 
 
@@ -115,13 +117,31 @@ public class Multiple_scan extends AppCompatActivity {
         startActivityForResult(intent, 99);
     }
 
+    @SuppressLint("NonConstantResourceId")
     protected void init(){
         cameraButton = (Button) findViewById(R.id.button4);
         cameraButton.setOnClickListener(new ScanButtonClickListener((ScanConstants.OPEN_CAMERA)));
         mediaButton = (Button) findViewById(R.id.button2);
         mediaButton.setOnClickListener(new ScanButtonClickListener(ScanConstants.OPEN_MEDIA));
-        savedButton = (Button) findViewById(R.id.button3);
-        savedButton.setOnClickListener(v -> save_document());
+        BottomNavigationView mainBottomnav = findViewById(R.id.nav_view);
+        if(this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+            mainBottomnav.setOnNavigationItemSelectedListener(
+                    item -> {
+                        switch (item.getItemId()) {
+                            case R.id.homeButton:
+                                save_document();
+                                break;
+                            case R.id.mediaButton:
+                            case R.id.settingsButton:
+                                break;
+                        }
+                        return false;
+                    });
+        }
+        else{
+            savedButton = (Button) findViewById(R.id.button3);
+            savedButton.setOnClickListener(v -> save_document());
+        }
         gridView = (GridView) findViewById(R.id.gridview);
         arr_bitmap = new ArrayList<>();
     }

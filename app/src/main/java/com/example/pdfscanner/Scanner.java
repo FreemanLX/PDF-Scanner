@@ -1,11 +1,19 @@
 package com.example.pdfscanner;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -19,8 +27,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.AdapterView.AdapterContextMenuInfo;
-import android.widget.Button;
+
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
@@ -34,25 +42,38 @@ import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import static android.os.Environment.getExternalStorageDirectory;
 
 
 public class Scanner extends AppCompatActivity {
-    private ListView scannedImageView;
     private boolean guest = false;
     PDF_Adapter adapter;
     ArrayList<Bitmap> data_photo;
+    AtomicInteger current_position = new AtomicInteger();
     ArrayList<String> pdf_locations;
     TextView empty_message;
     FirebaseStorage storage;
     private String UUID;
     ArrayList<PDF_Scanned> arrayList = new ArrayList<>();
+    private RecyclerView recyclerView;
+    Scanner scanner;
 
+    private void setAdapter(){
+         adapter = new PDF_Adapter(arrayList, this);
+         recyclerView = findViewById(R.id.listview);
+         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
+         recyclerView.setLayoutManager(layoutManager);
+         recyclerView.setItemAnimator(new DefaultItemAnimator());
+         recyclerView.addItemDecoration(new DividerLineRecyclerView(this));
+         recyclerView.setAdapter(adapter);
 
+    }
     protected void after_sort(){
         if(arrayList.size() > 0) {
             QuickSort<PDF_Scanned> quickSort = new QuickSort<>(arrayList, new PDF_Scanned_operator());
@@ -64,10 +85,11 @@ public class Scanner extends AppCompatActivity {
         }
     }
 
+
     protected void set_lists(){
         if(arrayList.size() > 0) {
-            adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
-            scannedImageView.setAdapter(adapter);
+            adapter = new PDF_Adapter(arrayList, this);
+            recyclerView.setAdapter(adapter);
             empty_message.setVisibility(View.GONE);
         }
     }
@@ -83,33 +105,22 @@ public class Scanner extends AppCompatActivity {
           return text.length() > 0 && text.length() < 20;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     private void init() {
         guest = getIntent().getBooleanExtra("Guest", false);
-        if(!guest) {
-            ImageView img = this.findViewById(R.id.imageView);
-            String welcome_text = getIntent().getStringExtra("Welcome");
-            String email = getIntent().getStringExtra("Email");
-            Bitmap btm = getIntent().getParcelableExtra("profile_photo");
-            setTitle("PDFScanner - User: " + welcome_text);
-            img.setImageBitmap(btm);
-            if (verify_text(welcome_text) && verify_text(email)) {
+            if (!guest) {
+                ImageView img = this.findViewById(R.id.imageView);
+                String welcome_text = getIntent().getStringExtra("Welcome");
+                String email = getIntent().getStringExtra("Email");
+                Bitmap btm = getIntent().getParcelableExtra("profile_photo");
+                img.setImageBitmap(btm);
                 set_text("Welcome, " + welcome_text, R.id.textView2);
                 set_text(email, R.id.textView4);
+            } else {
+                set_text("Welcome, Guest", R.id.textView2);
+                set_text("No mail address", R.id.textView4);
             }
-            if (verify_text(welcome_text) && !verify_text(email)) {
-                set_text("Welcome, " + welcome_text, R.id.textView4);
-                new Hide_context_data<TextView>(this, R.id.textView2).set();
-            }
-        }
-        else{
-            setTitle("PDFScanner - Guest");
-            new Hide_context_data<TextView>(this, R.id.textView4).set();
-            new Hide_context_data<TextView>(this, R.id.textView2).set();
-            new Hide_context_data<ImageView>(this, R.id.imageView).set();
-        }
-        scannedImageView = (ListView) findViewById(R.id.listview);
-        Button scanButton = (Button) findViewById(R.id.mediaButton);
-        scanButton.setOnClickListener(v -> startActivityForResult(new Intent(Scanner.this, Multiple_scan.class), 1));
+        setAdapter();
         data_photo = new ArrayList<>();
         pdf_locations = new ArrayList<>();
         empty_message = (TextView) findViewById(R.id.empty_mes);
@@ -126,13 +137,13 @@ public class Scanner extends AppCompatActivity {
 
     @SuppressLint("StaticFieldLeak")
     private class Reset_all extends AsyncTask<String, Integer, Boolean> {
-        Custom_loading_dialog general;
-        Reset_all(Custom_loading_dialog obj){ general = obj; general.LoadingDialog(); }
+        CustomLoadingDialog general;
+        Reset_all(CustomLoadingDialog obj){ general = obj; general.LoadingDialog(); }
         protected Boolean doInBackground(String... strings) {
             int i = 0;
             while(i < pdf_locations.size()){
                 if(!guest){
-                    Exists_File exists_file = new Exists_File(pdf_locations.get(i), UUID);
+                    FileVerifier exists_file = new FileVerifier(pdf_locations.get(i), UUID);
                     Sync_Exists_File obj = new Sync_Exists_File(exists_file);
                     obj.start();
                     try {
@@ -156,10 +167,43 @@ public class Scanner extends AppCompatActivity {
     }
 
 
+        @SuppressLint("NonConstantResourceId")
+        public boolean onContextItemSelected(MenuItem item) {
+            int position = current_position.get();
+            switch (item.getItemId()) {
+                case R.id.delete_id:
+                    AlertDialog.Builder builder = new AlertDialog.Builder(adapter.getContext());
+                    builder.setCancelable(true);
+                    builder.setMessage("Do you really want to delete the selected item?");
+                    builder.setNegativeButton("No", (dialog, id) -> {
+                        dialog.cancel();
+                    });
+                    builder.setPositiveButton("Yes", (dialog, id) -> {
+                        CustomLoadingDialog delete_msg = new CustomLoadingDialog(scanner, "The selected data will be deleted, please wait.");
+                        new Delete(delete_msg, position).execute();
+                        dialog.cancel();
+                    });
+                    AlertDialog alertDialog = builder.create();
+                    alertDialog.show();
+                    break;
+
+                case R.id.share_id:
+                    share(position);
+                    break;
+
+                case R.id.open_id:
+                    open(position);
+                    break;
+            }
+            return true;
+
+        }
+
+
     @SuppressLint("StaticFieldLeak")
     private class Sync_File extends AsyncTask<String, Integer, Boolean> {
-        Custom_loading_dialog general;
-        Sync_File(Custom_loading_dialog obj){
+        CustomLoadingDialog general;
+        Sync_File(CustomLoadingDialog obj){
                  general = obj;
                  general.LoadingDialog();
         }
@@ -194,17 +238,17 @@ public class Scanner extends AppCompatActivity {
     }
 
     @SuppressLint("StaticFieldLeak")
-    private class Delete extends AsyncTask<String, Integer, Boolean> {
-        Custom_loading_dialog general;
+    public class Delete extends AsyncTask<String, Integer, Boolean> {
+        CustomLoadingDialog general;
         int position;
-        Delete(Custom_loading_dialog obj, int position){
+        Delete(CustomLoadingDialog obj, int position){
             general = obj;
             this.position = position;
             general.LoadingDialog();
         }
         protected Boolean doInBackground(String... strings) {
             if(!guest){
-                Exists_File exists_file = new Exists_File(pdf_locations.get(position), UUID);
+                FileVerifier exists_file = new FileVerifier(pdf_locations.get(position), UUID);
                 Sync_Exists_File obj = new Sync_Exists_File(exists_file);
                 obj.start();
                 if(exists_file.getResult()) {
@@ -227,8 +271,8 @@ public class Scanner extends AppCompatActivity {
 
     @SuppressLint("StaticFieldLeak")
     private class Sign_Out extends AsyncTask<String, Integer, Boolean> {
-        Custom_loading_dialog general;
-        Sign_Out(Custom_loading_dialog obj){
+        CustomLoadingDialog general;
+        Sign_Out(CustomLoadingDialog obj){
             general = obj;
             general.LoadingDialog();
         }
@@ -243,20 +287,48 @@ public class Scanner extends AppCompatActivity {
     }
 
 
-
+    @SuppressLint("NonConstantResourceId")
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scanner);
+        BottomNavigationView mainBottomnav = findViewById(R.id.nav_view);
         init();
-
-        registerForContextMenu(scannedImageView);
-        scannedImageView.setOnItemClickListener((parent, view, position, id) -> open(position));
+        if(this.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+            mainBottomnav.setOnNavigationItemSelectedListener(
+                    item -> {
+                        switch (item.getItemId()) {
+                            case R.id.homeButton:
+                                 break;
+                            case R.id.mediaButton:
+                                startActivityForResult(new Intent(Scanner.this, Multiple_scan.class), 1);
+                                break;
+                            case R.id.settingsButton:
+                                break;
+                        }
+                        return false;
+                    });
+        }
+        else{
+            Button scanButton = (Button) findViewById(R.id.mediaButton);
+            scanButton.setOnClickListener(v -> startActivityForResult(new Intent(Scanner.this, Multiple_scan.class), 1));
+        }
         UUID = getIntent().getStringExtra("UUID");
-       Custom_loading_dialog sync = new Custom_loading_dialog(this);
+        CustomLoadingDialog sync = new CustomLoadingDialog(this);
         new Sync_File(sync).execute();
+        ItemClickSupport.addTo(recyclerView).setOnItemClickListener((RecyclerView recyclerView, int position, View v) -> {
+            open(position);
+        });
+
+        ItemClickSupport.addTo(recyclerView).setOnItemLongClickListener((RecyclerView recyclerView, int position, View v) -> {
+            current_position.set(position);
+            return false;
+        });
+        registerForContextMenu(recyclerView);
+        scanner = this;
     }
 
     @Override
@@ -265,14 +337,18 @@ public class Scanner extends AppCompatActivity {
         return true;
     }
 
-
     @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo){
-         super.onCreateContextMenu(menu, v, menuInfo);
-         MenuInflater inflater = getMenuInflater();
-         inflater.inflate(R.menu.scanner_main, menu);
+    public void onCreateContextMenu(ContextMenu contextMenu, View view, ContextMenu.ContextMenuInfo contextMenuInfo) {
+       // MenuItem Open = contextMenu.add(Menu.NONE, 1, 1, "Open");
+       // MenuItem Delete = contextMenu.add(Menu.NONE, 2, 2, "Delete");
+       // MenuItem Share = contextMenu.add(Menu.NONE, 3, 3, "Share");
+       // Open.setOnMenuItemClickListener(onEditMenu);
+       // Delete.setOnMenuItemClickListener(onEditMenu);
+       // Share.setOnMenuItemClickListener(onEditMenu);
+        super.onCreateContextMenu(contextMenu, view, contextMenuInfo);
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.scanner_main, contextMenu);
     }
-
 
 
     private void upload_pdf(String location) throws Exception{
@@ -307,85 +383,51 @@ public class Scanner extends AppCompatActivity {
 
     @SuppressLint("NonConstantResourceId")
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.action_settings:
-                if(guest){
-                    Alert_Generator ag = new Alert_Generator(this, "You are logged as guest", Alert_Generator.OK);
-                    ag.show();
-                }
-                else{
+        public boolean onOptionsItemSelected(MenuItem item) {
+            switch (item.getItemId()) {
+                case R.id.action_settings:
+                    if (guest) {
+                        Alert_Generator ag = new Alert_Generator(this, "You are logged as guest", Alert_Generator.OK);
+                        ag.show();
+                    } else {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                        builder.setCancelable(true);
+                        builder.setMessage("Do you really want to sign out?");
+                        builder.setNegativeButton("No", (dialog, id) -> {
+                            dialog.cancel();
+                        });
+                        builder.setPositiveButton("Yes", (dialog, id) -> {
+                            CustomLoadingDialog delete_msg = new CustomLoadingDialog(this, "Signing out, please wait.");
+                            new Sign_Out(delete_msg).execute();
+                        });
+                        AlertDialog alertDialog = builder.create();
+                        alertDialog.show();
+                    }
+                    return true;
+                case R.id.refresh:
+                    refresh();
+                    return true;
+                case R.id.reset:
                     AlertDialog.Builder builder = new AlertDialog.Builder(this);
                     builder.setCancelable(true);
-                    builder.setMessage("Do you really want to sign out?");
+                    builder.setMessage("Do you really want to reset the selected item?");
                     builder.setNegativeButton("No", (dialog, id) -> {
                         dialog.cancel();
                     });
                     builder.setPositiveButton("Yes", (dialog, id) -> {
-                        Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "Signing out, please wait.");
-                        new Sign_Out(delete_msg).execute();
+                        CustomLoadingDialog delete_msg = new CustomLoadingDialog(this, "The all data will be deleted, please wait.");
+                        new Reset_all(delete_msg).execute();
                     });
                     AlertDialog alertDialog = builder.create();
                     alertDialog.show();
-                }
-                return true;
-            case R.id.refresh:
-                refresh();
-                return true;
-            case R.id.reset:
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setCancelable(true);
-                builder.setMessage("Do you really want to reset the selected item?");
-                builder.setNegativeButton("No", (dialog, id) -> {
-                    dialog.cancel();
-                });
-                builder.setPositiveButton("Yes", (dialog, id) -> {
-                    Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "The all data will be deleted, please wait.");
-                    new Reset_all(delete_msg).execute();
-                });
-                AlertDialog alertDialog = builder.create();
-                alertDialog.show();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
-
-
-    @SuppressLint("NonConstantResourceId")
-    @Override
-    public boolean onContextItemSelected(MenuItem item){
-        AdapterContextMenuInfo info  = (AdapterContextMenuInfo) item.getMenuInfo();
-        switch(item.getItemId()){
-            case R.id.delete_id:
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setCancelable(true);
-                builder.setMessage("Do you really want to delete the selected item?");
-                builder.setNegativeButton("No", (dialog, id) -> {
-                    dialog.cancel();
-                });
-                builder.setPositiveButton("Yes", (dialog, id) -> {
-                    Custom_loading_dialog delete_msg = new Custom_loading_dialog(this, "The selected data will be deleted, please wait.");
-                    new Delete(delete_msg, info.position).execute();
-                    dialog.cancel();
-                });
-                AlertDialog alertDialog = builder.create();
-                alertDialog.show();
-                return true;
-
-            case R.id.share_id:
-                share(info.position);
-                return true;
-
-            case R.id.open_id:
-                open(info.position);
-                return true;
-
-            default:
-                return super.onContextItemSelected(item);
+                    return true;
+                default:
+                    return super.onOptionsItemSelected(item);
+            }
         }
 
-    }
+
+
 
     @SuppressLint("IntentReset")
     protected void open(int position){
@@ -417,7 +459,7 @@ public class Scanner extends AppCompatActivity {
              return;
         }
        if(notification) {
-           Notification_Generator ng = new Notification_Generator(this, "The file has been successfully deleted");
+           Notifications ng = new Notifications(this, "The file has been successfully deleted");
            ng.show();
        }
     }
@@ -503,8 +545,8 @@ public class Scanner extends AppCompatActivity {
                             arrayList.sort(new PDF_Scanned_operator());
                         }
                     }
-                    adapter = new PDF_Adapter(this, R.layout.list_row, arrayList);
-                    scannedImageView.setAdapter(adapter);
+                    adapter = new PDF_Adapter(arrayList, this);
+                    recyclerView.setAdapter(adapter);
                 }
             }
         }
