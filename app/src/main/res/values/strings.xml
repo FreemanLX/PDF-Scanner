@@ -55,4 +55,7 @@
     <string name="reset_all_data">Reset all data</string>
     <string name="sign_out">Sign out</string>
     <string name="refresh">Refresh</string>
+    <string name="title_activity_drawer_activty">DrawerActivty</string>
+    <string name="title_activity_bottom_navigation_test">BottomNavigationTestActivity</string>
+    <string name="title_activity_buttom_navigation">ButtomNavigationActivity</string>
 </resources>

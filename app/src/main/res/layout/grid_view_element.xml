@@ -6,8 +6,8 @@
 
     <ImageView
         android:id="@+id/imglist"
-        android:scaleType="fitXY"
         android:layout_width="111dp"
         android:layout_height="149dp"
+        android:scaleType="fitXY"
         android:src="@mipmap/ic_launcher" />
 </RelativeLayout>

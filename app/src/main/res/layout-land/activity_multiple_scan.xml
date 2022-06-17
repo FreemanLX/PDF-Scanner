@@ -46,7 +46,7 @@
         android:id="@+id/button4"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="28dp"
+        android:layout_marginStart="15dp"
         android:layout_marginEnd="131dp"
         android:layout_marginBottom="200dp"
         android:text="@string/camera"
@@ -57,7 +57,7 @@
 
     <GridView
         android:id="@+id/gridview"
-        android:layout_width="430dp"
+        android:layout_width="350dp"
         android:layout_height="match_parent"
         android:layout_marginStart="13dp"
         android:layout_marginTop="20dp"
